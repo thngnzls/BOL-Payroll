@@ -378,7 +378,7 @@ function VoucherContent() {
                       <tr>
                         <td className="py-0.5 font-bold">Basic / Reg</td>
                         <td className="text-center py-0.5">
-                          {p.no_of_working_days}
+                          {totalDaysWorked}
                         </td>
                         <td className="text-center py-0.5">-</td>
                         <td className="text-right py-0.5 font-bold text-gray-900">
