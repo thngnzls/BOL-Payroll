@@ -66,7 +66,6 @@ function buildPayrollPdf(data: any[], options: PdfOptions): jsPDF {
   doc.setDrawColor(220, 220, 220);
   doc.line(m, m + 45, pageWidth - m, m + 45);
 
-  // FIXED: Updated Headers to match the new Web UI labels
   const columns = [
     { header: "Week", dataKey: "Week (Date)" },
     { header: "Employee", dataKey: "Employee" },
@@ -78,8 +77,8 @@ function buildPayrollPdf(data: any[], options: PdfOptions): jsPDF {
     { header: "ND(Night)", dataKey: "ND (10PM-3AM)" },
     { header: "ND/Hr", dataKey: "ND (Per Hour)" },
     { header: "Earnings", dataKey: "Total Earnings" },
-    { header: "Days(ND)", dataKey: "No. of Working Days (w/ ND)" }, // Updated this row
-    { header: "Days", dataKey: "No. of Working Days (w/o ND)" }, // Updated this row
+    { header: "Days(ND)", dataKey: "No. of Working Days (w/ ND)" },
+    { header: "Days", dataKey: "No. of Working Days (w/o ND)" },
     { header: "+Pay", dataKey: "Additional Pay" },
     { header: "Gross", dataKey: "Weekly Gross" },
     { header: "OT Hrs", dataKey: "Total OT Hrs" },
@@ -95,6 +94,35 @@ function buildPayrollPdf(data: any[], options: PdfOptions): jsPDF {
   );
   const tableData: any[] = [];
   let currentWeek = "";
+
+  // 1. Calculate Grand Totals across all numeric columns
+  const totals = sortedData.reduce(
+    (acc, curr) => {
+      acc.basic += curr["Basic Salary"] || 0;
+      acc.allow += curr["Allowance"] || 0;
+      acc.nd += curr["ND (10PM-3AM)"] || 0;
+      acc.earnings += curr["Total Earnings"] || 0;
+      acc.addPay += curr["Additional Pay"] || 0;
+      acc.gross += curr["Weekly Gross"] || 0;
+      acc.otPay += curr["OT Pay"] || 0;
+      acc.otNdPay += curr["Addit'l Working Hrs"] || 0;
+      acc.deduct += curr["Deduction"] || 0;
+      acc.net += curr["Net Pay"] || 0;
+      return acc;
+    },
+    {
+      basic: 0,
+      allow: 0,
+      nd: 0,
+      earnings: 0,
+      addPay: 0,
+      gross: 0,
+      otPay: 0,
+      otNdPay: 0,
+      deduct: 0,
+      net: 0,
+    },
+  );
 
   sortedData.forEach((row) => {
     if (row["Week (Date)"] !== currentWeek) {
@@ -130,6 +158,31 @@ function buildPayrollPdf(data: any[], options: PdfOptions): jsPDF {
     tableData.push(formattedRow);
   });
 
+  // 2. Append the Grand Totals Row to the end of the PDF Data Array
+  tableData.push({
+    isGrandTotal: true,
+    "Week (Date)": "GRAND TOTALS",
+    Employee: "",
+    "Personal Experience": "",
+    "Rate Per Day": "-",
+    "Rate Per Hour": "-",
+    "Basic Salary": `P${totals.basic.toLocaleString("en-US", { minimumFractionDigits: 2 })}`,
+    Allowance: `P${totals.allow.toLocaleString("en-US", { minimumFractionDigits: 2 })}`,
+    "ND (10PM-3AM)": `P${totals.nd.toLocaleString("en-US", { minimumFractionDigits: 2 })}`,
+    "ND (Per Hour)": "-",
+    "Total Earnings": `P${totals.earnings.toLocaleString("en-US", { minimumFractionDigits: 2 })}`,
+    "No. of Working Days (w/ ND)": "-",
+    "No. of Working Days (w/o ND)": "-",
+    "Additional Pay": `P${totals.addPay.toLocaleString("en-US", { minimumFractionDigits: 2 })}`,
+    "Weekly Gross": `P${totals.gross.toLocaleString("en-US", { minimumFractionDigits: 2 })}`,
+    "Total OT Hrs": "-",
+    "OT Pay": `P${totals.otPay.toLocaleString("en-US", { minimumFractionDigits: 2 })}`,
+    Overtime: "-",
+    "Addit'l Working Hrs": `P${totals.otNdPay.toLocaleString("en-US", { minimumFractionDigits: 2 })}`,
+    Deduction: `-P${totals.deduct.toLocaleString("en-US", { minimumFractionDigits: 2 })}`,
+    "Net Pay": `P${totals.net.toLocaleString("en-US", { minimumFractionDigits: 2 })}`,
+  });
+
   autoTable(doc, {
     columns: columns,
     body: tableData,
@@ -147,11 +200,12 @@ function buildPayrollPdf(data: any[], options: PdfOptions): jsPDF {
       0: { halign: "left" },
       1: { fontStyle: "bold", halign: "left", cellWidth: "wrap" },
       2: { halign: "center" },
-      19: { fontStyle: "bold", halign: "right", textColor: [153, 0, 0] },
+      19: { fontStyle: "bold", halign: "right" },
     },
     didParseCell: function (data) {
       const rawData = data.row.raw as any;
 
+      // Gray Separator Rows
       if (rawData.isWeekHeader) {
         data.cell.styles.fillColor = [230, 230, 230];
         data.cell.styles.textColor = [0, 0, 0];
@@ -159,6 +213,17 @@ function buildPayrollPdf(data: any[], options: PdfOptions): jsPDF {
         data.cell.styles.halign = "left";
         if (data.column.dataKey === "Week (Date)") {
           data.cell.colSpan = Object.keys(columns).length;
+        }
+      }
+
+      // Black Grand Total Row
+      if (rawData.isGrandTotal) {
+        data.cell.styles.fillColor = [0, 0, 0];
+        data.cell.styles.textColor = [255, 255, 255];
+        data.cell.styles.fontStyle = "bold";
+        if (data.column.index === 0) {
+          data.cell.colSpan = 3; // Merges Week, Employee, and Role
+          data.cell.styles.halign = "right";
         }
       }
     },

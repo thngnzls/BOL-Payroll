@@ -32,7 +32,6 @@ export async function exportPayrollToExcel(data: any[], reportPeriod: string) {
   };
   subtitleCell.alignment = { horizontal: "center", vertical: "middle" };
 
-  // FIXED: Updated Headers
   const headers = [
     "Week (Date)",
     "Employee",
@@ -105,41 +104,44 @@ export async function exportPayrollToExcel(data: any[], reportPeriod: string) {
   let currentRow = 4;
 
   data.forEach((row) => {
+    // FIXED: Adjusted formulas so math accurately mirrors the column layout left-to-right
     const rowData = [
-      row["Week (Date)"],
-      row["Employee"],
-      row["Personal Experience"],
-      row["Rate Per Day"],
+      row["Week (Date)"], // A (1)
+      row["Employee"], // B (2)
+      row["Personal Experience"], // C (3)
+      row["Rate Per Day"], // D (4)
 
-      { formula: `D${currentRow}/8`, result: row["Rate Per Hour"] },
-      { formula: `D${currentRow}*K${currentRow}`, result: row["Basic Salary"] },
+      { formula: `D${currentRow}/8`, result: row["Rate Per Hour"] }, // E (5)
+      { formula: `D${currentRow}*K${currentRow}`, result: row["Basic Salary"] }, // F (6)
 
-      row["Allowance"],
-      row["ND (10PM-3AM)"],
-      row["ND (Per Hour)"],
+      row["Allowance"], // G (7)
+      row["ND (10PM-3AM)"], // H (8)
+      row["ND (Per Hour)"], // I (9)
 
+      // J (10) Earnings = Basic + Allow + ND
       {
-        formula: `F${currentRow}+G${currentRow}+H${currentRow}+M${currentRow}`,
+        formula: `F${currentRow}+G${currentRow}+H${currentRow}`,
         result: row["Total Earnings"],
       },
 
-      // FIXED: Using exact new data keys mapped from your UI
-      row["No. of Working Days (w/ ND)"],
-      row["No. of Working Days (w/o ND)"],
-      row["Additional Pay"],
+      row["No. of Working Days (w/ ND)"], // K (11)
+      row["No. of Working Days (w/o ND)"], // L (12)
+      row["Additional Pay"], // M (13)
 
+      // N (14) Gross = Earnings + Additional Pay
+      { formula: `J${currentRow}+M${currentRow}`, result: row["Weekly Gross"] },
+
+      row["Total OT Hrs"], // O (15)
+      row["OT Pay"], // P (16)
+      row["Overtime"], // Q (17)
+      row["Addit'l Working Hrs"], // R (18)
+      row["Deduction"], // S (19)
+
+      // T (20) Net Pay = Gross + OT + OT(ND) - Deduct
       {
-        formula: `J${currentRow}+P${currentRow}+R${currentRow}`,
-        result: row["Weekly Gross"],
+        formula: `N${currentRow}+P${currentRow}+R${currentRow}-S${currentRow}`,
+        result: row["Net Pay"],
       },
-
-      row["Total OT Hrs"],
-      row["OT Pay"],
-      row["Overtime"],
-      row["Addit'l Working Hrs"],
-      row["Deduction"],
-
-      { formula: `N${currentRow}-S${currentRow}`, result: row["Net Pay"] },
     ];
 
     const addedRow = sheet.addRow(rowData);
@@ -160,7 +162,6 @@ export async function exportPayrollToExcel(data: any[], reportPeriod: string) {
       pattern: "solid",
       fgColor: { argb: "FFFDF3F3" },
     };
-
     addedRow.getCell(20).fill = {
       type: "pattern",
       pattern: "solid",
@@ -177,24 +178,54 @@ export async function exportPayrollToExcel(data: any[], reportPeriod: string) {
     currentRow++;
   });
 
+  // ==========================================
+  // GRAND TOTALS ROW (Black with White Text)
+  // ==========================================
   const totalRow = sheet.addRow([]);
-  totalRow.getCell(2).value = "GRAND TOTALS";
-  totalRow.getCell(2).font = { bold: true, size: 11 };
+  totalRow.height = 25;
 
-  totalRow.getCell(20).value = {
-    formula: `SUM(T4:T${currentRow - 1})`,
-    result: 0,
-  };
+  sheet.mergeCells(`A${currentRow}:C${currentRow}`);
+  const gtCell = totalRow.getCell(1);
+  gtCell.value = "GRAND TOTALS";
 
-  totalRow.getCell(20).numFmt = "₱#,##0.00";
-  totalRow.getCell(20).font = {
-    bold: true,
-    color: { argb: "FF990000" },
-    size: 12,
-  };
-  totalRow.getCell(20).border = {
-    top: { style: "double", color: { argb: "FF990000" } },
-  };
+  // Inject SUM formulas across all financial columns
+  const totalColumns = [
+    { col: 6, letter: "F" },
+    { col: 7, letter: "G" },
+    { col: 8, letter: "H" },
+    { col: 10, letter: "J" },
+    { col: 13, letter: "M" },
+    { col: 14, letter: "N" },
+    { col: 16, letter: "P" },
+    { col: 18, letter: "R" },
+    { col: 19, letter: "S" },
+    { col: 20, letter: "T" },
+  ];
+
+  totalColumns.forEach(({ col, letter }) => {
+    totalRow.getCell(col).value = {
+      formula: `SUM(${letter}4:${letter}${currentRow - 1})`,
+      result: 0,
+    };
+    totalRow.getCell(col).numFmt = "₱#,##0.00";
+  });
+
+  // Style the entire row Black
+  totalRow.eachCell((cell, colNumber) => {
+    cell.fill = {
+      type: "pattern",
+      pattern: "solid",
+      fgColor: { argb: "FF000000" },
+    };
+    cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
+
+    // Set text alignment
+    if (colNumber <= 3) {
+      cell.alignment = { horizontal: "right", vertical: "middle" };
+    } else {
+      cell.alignment = { horizontal: "right", vertical: "middle" };
+    }
+  });
 
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([buffer], {
