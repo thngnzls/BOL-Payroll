@@ -7,7 +7,6 @@ export interface PdfOptions {
   reportPeriod: string;
 }
 
-// Exported so we can share it with the Master Page table
 export const getWeekDateRange = (weekStr: string) => {
   if (!weekStr) return "";
   try {
@@ -29,7 +28,6 @@ export const getWeekDateRange = (weekStr: string) => {
   }
 };
 
-// Core PDF generation logic separated so it can be previewed OR downloaded
 function buildPayrollPdf(data: any[], options: PdfOptions): jsPDF {
   const { paperSize, marginMode, reportPeriod } = options;
   const margins = { narrow: 20, normal: 40, wide: 60 };
@@ -38,16 +36,15 @@ function buildPayrollPdf(data: any[], options: PdfOptions): jsPDF {
   const doc = new jsPDF("l", "pt", paperSize);
   const pageWidth = doc.internal.pageSize.getWidth();
 
-  // --- HEADER SECTION ---
   doc.setTextColor(153, 0, 0);
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
-  doc.text("BEAM OF LIGHTS BUILDERS OPC", m, m + 10);
+  doc.text("BEAM OF LIGHT BUILDERS OPC", m, m + 10);
 
   doc.setTextColor(100, 100, 100);
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
-  doc.text("Master Payroll Ledger", m, m + 22);
+  doc.text("Master Historical Ledger", m, m + 22);
 
   doc.setTextColor(40, 40, 40);
   doc.setFontSize(14);
@@ -69,6 +66,7 @@ function buildPayrollPdf(data: any[], options: PdfOptions): jsPDF {
   doc.setDrawColor(220, 220, 220);
   doc.line(m, m + 45, pageWidth - m, m + 45);
 
+  // FIXED: Updated Headers to match the new Web UI labels
   const columns = [
     { header: "Week", dataKey: "Week (Date)" },
     { header: "Employee", dataKey: "Employee" },
@@ -80,8 +78,8 @@ function buildPayrollPdf(data: any[], options: PdfOptions): jsPDF {
     { header: "ND(Night)", dataKey: "ND (10PM-3AM)" },
     { header: "ND/Hr", dataKey: "ND (Per Hour)" },
     { header: "Earnings", dataKey: "Total Earnings" },
-    { header: "Days", dataKey: "No. of Working Days (w/ ND)" },
-    { header: "+Days", dataKey: "No. of Working Days (w/o ND)" },
+    { header: "Days(ND)", dataKey: "No. of Working Days (w/ ND)" }, // Updated this row
+    { header: "Days", dataKey: "No. of Working Days (w/o ND)" }, // Updated this row
     { header: "+Pay", dataKey: "Additional Pay" },
     { header: "Gross", dataKey: "Weekly Gross" },
     { header: "OT Hrs", dataKey: "Total OT Hrs" },
@@ -92,7 +90,6 @@ function buildPayrollPdf(data: any[], options: PdfOptions): jsPDF {
     { header: "NET PAY", dataKey: "Net Pay" },
   ];
 
-  // --- DATA FORMATTING & WEEK SEPARATORS ---
   const sortedData = [...data].sort((a, b) =>
     b["Week (Date)"].localeCompare(a["Week (Date)"]),
   );
@@ -133,7 +130,6 @@ function buildPayrollPdf(data: any[], options: PdfOptions): jsPDF {
     tableData.push(formattedRow);
   });
 
-  // --- GENERATE TABLE ---
   autoTable(doc, {
     columns: columns,
     body: tableData,
@@ -154,7 +150,6 @@ function buildPayrollPdf(data: any[], options: PdfOptions): jsPDF {
       19: { fontStyle: "bold", halign: "right", textColor: [153, 0, 0] },
     },
     didParseCell: function (data) {
-      // FIX: Cast raw row data to 'any' to bypass strict TypeScript checks
       const rawData = data.row.raw as any;
 
       if (rawData.isWeekHeader) {
@@ -173,7 +168,7 @@ function buildPayrollPdf(data: any[], options: PdfOptions): jsPDF {
       doc.setFontSize(7);
       doc.setTextColor(150);
       doc.text(
-        "BEAM OF LIGHTS BUILDERS OPC - Confidential Payroll Data",
+        "BEAM OF LIGHT BUILDERS OPC - Confidential Payroll Data",
         m,
         pageHeight - m,
       );
@@ -186,7 +181,6 @@ function buildPayrollPdf(data: any[], options: PdfOptions): jsPDF {
     },
   });
 
-  // --- SIGNATURE BLOCK ---
   const finalY = (doc as any).lastAutoTable?.finalY || m + 55;
   const pageHeight = doc.internal.pageSize.getHeight();
   let sigY = finalY + 60;
@@ -212,19 +206,17 @@ function buildPayrollPdf(data: any[], options: PdfOptions): jsPDF {
   const rightX = pageWidth - m - 140;
   doc.text("Approved By:", rightX, sigY);
   doc.line(rightX, sigY + 30, rightX + 140, sigY + 30);
-  doc.text("President", rightX, sigY + 42);
+  doc.text("General Manager", rightX, sigY + 42);
 
   return doc;
 }
 
-// 1. Used for the Live Iframe Preview
 export function getPdfBlobUrl(data: any[], options: PdfOptions): string {
   if (!data || data.length === 0) return "";
   const doc = buildPayrollPdf(data, options);
   return URL.createObjectURL(doc.output("blob"));
 }
 
-// 2. Used for the actual File Download
 export function downloadPayrollPdf(data: any[], options: PdfOptions) {
   const doc = buildPayrollPdf(data, options);
   const cleanPeriod = options.reportPeriod.replace(/[^a-zA-Z0-9]/g, "_");

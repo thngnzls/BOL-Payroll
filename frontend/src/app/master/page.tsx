@@ -601,71 +601,71 @@ export default function MasterPayrollPage() {
                       );
                     })}
 
-                    {/* NEW: WEEKLY TOTALS ROW */}
-                    <tr className="bg-gray-900 text-white divide-x divide-gray-700 border-b-[6px] border-gray-300 shadow-inner">
+                    {/* REDESIGNED: WEEKLY TOTALS ROW */}
+                    <tr className="bg-black text-white divide-x divide-gray-800 border-b-[6px] border-gray-300 shadow-inner">
                       <td
                         colSpan={3}
                         className="px-4 py-3 text-right text-xs font-bold uppercase tracking-widest text-gray-300"
                       >
                         Weekly Totals
                       </td>
-                      <td className="px-4 py-3 text-center text-gray-600">-</td>
-                      <td className="px-4 py-3 text-center text-gray-600">-</td>
-                      <td className="px-4 py-3 text-right font-bold font-mono">
+                      <td className="px-4 py-3 text-center text-gray-500">-</td>
+                      <td className="px-4 py-3 text-center text-gray-500">-</td>
+                      <td className="px-4 py-3 text-right font-bold font-mono text-gray-100">
                         ₱
                         {totals.basic.toLocaleString("en-US", {
                           minimumFractionDigits: 2,
                         })}
                       </td>
-                      <td className="px-4 py-3 text-right font-bold font-mono">
+                      <td className="px-4 py-3 text-right font-bold font-mono text-gray-100">
                         ₱
                         {totals.allow.toLocaleString("en-US", {
                           minimumFractionDigits: 2,
                         })}
                       </td>
-                      <td className="px-4 py-3 text-right font-bold font-mono">
+                      <td className="px-4 py-3 text-right font-bold font-mono text-gray-100">
                         ₱
                         {totals.nd.toLocaleString("en-US", {
                           minimumFractionDigits: 2,
                         })}
                       </td>
-                      <td className="px-4 py-3 text-center text-gray-600">-</td>
-                      <td className="px-4 py-3 text-right font-bold text-red-300 font-mono bg-red-900/20">
+                      <td className="px-4 py-3 text-center text-gray-500">-</td>
+                      <td className="px-4 py-3 text-right font-bold font-mono text-white">
                         ₱
                         {totals.earnings.toLocaleString("en-US", {
                           minimumFractionDigits: 2,
                         })}
                       </td>
-                      <td className="px-4 py-3 text-center text-gray-600">-</td>
-                      <td className="px-4 py-3 text-center text-gray-600">-</td>
-                      <td className="px-4 py-3 text-right font-bold font-mono">
+                      <td className="px-4 py-3 text-center text-gray-500">-</td>
+                      <td className="px-4 py-3 text-center text-gray-500">-</td>
+                      <td className="px-4 py-3 text-right font-bold font-mono text-gray-100">
                         ₱
                         {totals.addPay.toLocaleString("en-US", {
                           minimumFractionDigits: 2,
                         })}
                       </td>
-                      <td className="px-4 py-3 text-right font-bold text-red-300 font-mono bg-red-900/20">
+                      <td className="px-4 py-3 text-right font-bold font-mono text-white">
                         ₱
                         {totals.gross.toLocaleString("en-US", {
                           minimumFractionDigits: 2,
                         })}
                       </td>
-                      <td className="px-4 py-3 text-center text-gray-600">-</td>
-                      <td className="px-4 py-3 text-right font-bold font-mono">
+                      <td className="px-4 py-3 text-center text-gray-500">-</td>
+                      <td className="px-4 py-3 text-right font-bold font-mono text-gray-100">
                         ₱
                         {totals.otPay.toLocaleString("en-US", {
                           minimumFractionDigits: 2,
                         })}
                       </td>
-                      <td className="px-4 py-3 text-center text-gray-600">-</td>
-                      <td className="px-4 py-3 text-center text-gray-600">-</td>
-                      <td className="px-4 py-3 text-right font-bold text-red-400 font-mono">
+                      <td className="px-4 py-3 text-center text-gray-500">-</td>
+                      <td className="px-4 py-3 text-center text-gray-500">-</td>
+                      <td className="px-4 py-3 text-right font-bold font-mono text-gray-200">
                         -₱
                         {totals.deduct.toLocaleString("en-US", {
                           minimumFractionDigits: 2,
                         })}
                       </td>
-                      <td className="px-4 py-3 text-right font-black text-[#ffcccc] text-[13px] font-mono bg-red-900/40">
+                      <td className="px-4 py-3 text-right font-black text-white text-[13px] font-mono">
                         ₱
                         {totals.net.toLocaleString("en-US", {
                           minimumFractionDigits: 2,
