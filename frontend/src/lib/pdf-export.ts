@@ -271,7 +271,7 @@ function buildPayrollPdf(data: any[], options: PdfOptions): jsPDF {
   const rightX = pageWidth - m - 140;
   doc.text("Approved By:", rightX, sigY);
   doc.line(rightX, sigY + 30, rightX + 140, sigY + 30);
-  doc.text("General Manager", rightX, sigY + 42);
+  doc.text("President", rightX, sigY + 42);
 
   return doc;
 }

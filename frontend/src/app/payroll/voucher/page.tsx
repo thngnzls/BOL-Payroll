@@ -274,6 +274,12 @@ function VoucherContent() {
       <div className="hidden print:block print:w-full print:m-0 print:p-0">
         {selectedPayrolls.map((p) => {
           const emp = employees[p.employee_id];
+
+          // FIXED: Mathematically combining both specific day variables to get the total days of work
+          const totalDaysWorked =
+            (Number(p.no_of_working_days) || 0) +
+            (Number(p.addtl_working_days) || 0);
+
           return (
             <div
               key={p.id}
@@ -344,7 +350,7 @@ function VoucherContent() {
                           Days of Work
                         </div>
                         <div className="text-[10px] font-bold text-gray-900 leading-tight">
-                          {p.no_of_working_days} Days
+                          {totalDaysWorked} Days
                         </div>
                       </div>
                       <div>
