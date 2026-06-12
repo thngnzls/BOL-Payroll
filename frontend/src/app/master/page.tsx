@@ -69,7 +69,6 @@ export default function MasterPayrollPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Function to filter the exact data we want to export based on user selection
   const getFilteredPayrolls = () => {
     if (filterMode === "month") {
       return payrolls.filter(
@@ -82,7 +81,6 @@ export default function MasterPayrollPage() {
     return payrolls; // 'all'
   };
 
-  // Convert the raw DB response into the flat format the PDF/Excel scripts expect
   const getMappedData = (dataToMap: PayrollResponse[]) => {
     return dataToMap.map((p) => {
       const emp = employees[p.employee_id];
@@ -97,8 +95,8 @@ export default function MasterPayrollPage() {
         "ND (10PM-3AM)": p.nd_10pm_3am,
         "ND (Per Hour)": p.nd_per_hour,
         "Total Earnings": p.total_earnings,
-        "No. of Working Days": p.no_of_working_days,
-        "Addt'l Working Days": p.addtl_working_days,
+        "No. of Working Days (w/ ND)": p.no_of_working_days,
+        "No. of Working Days (w/o ND)": p.addtl_working_days,
         "Additional Pay": p.additional_pay,
         "Weekly Gross": p.weekly_gross,
         "Total OT Hrs": p.total_ot_hours,
@@ -111,7 +109,6 @@ export default function MasterPayrollPage() {
     });
   };
 
-  // Auto-update the "Report Period" string in the PDF config when filters change
   useEffect(() => {
     if (filterMode === "all")
       setPdfConfig((prev) => ({ ...prev, reportPeriod: "All Master Records" }));
@@ -127,12 +124,10 @@ export default function MasterPayrollPage() {
       }));
   }, [filterMode, filterMonth, filterWeek]);
 
-  // LIVE PDF PREVIEW RENDERER
   useEffect(() => {
     if (isExportModalOpen && exportFormat === "pdf") {
       const activeData = getMappedData(getFilteredPayrolls());
 
-      // Debounce the PDF rendering slightly so it doesn't freeze the UI while typing
       const timer = setTimeout(() => {
         if (activeData.length > 0) {
           const url = getPdfBlobUrl(activeData, pdfConfig);
@@ -155,12 +150,10 @@ export default function MasterPayrollPage() {
     employees,
   ]);
 
-  // Clean up Blob URLs to prevent browser memory leaks
   useEffect(() => {
     if (pdfPreviewUrl) return () => URL.revokeObjectURL(pdfPreviewUrl);
   }, [pdfPreviewUrl]);
 
-  // Handle the final execution of the Export button
   const handleExecuteExport = () => {
     const activeData = getMappedData(getFilteredPayrolls());
     if (activeData.length === 0) {
@@ -176,7 +169,8 @@ export default function MasterPayrollPage() {
     setIsExportModalOpen(false);
   };
 
-  let lastWeekId = "";
+  // Group unique weeks so we can easily append a totals row for each
+  const uniqueWeeks = Array.from(new Set(payrolls.map((p) => p.week_id)));
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-6 p-6 relative">
@@ -186,7 +180,6 @@ export default function MasterPayrollPage() {
       {isExportModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-6xl h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            {/* Modal Header */}
             <div className="bg-[#990000] p-4 flex justify-between items-center text-white shrink-0">
               <h3 className="font-bold flex items-center gap-2 text-lg">
                 <Download className="w-5 h-5" /> Export & Print Hub
@@ -200,9 +193,7 @@ export default function MasterPayrollPage() {
             </div>
 
             <div className="flex flex-col lg:flex-row flex-1 overflow-hidden">
-              {/* Left Column: Settings Panel */}
               <div className="w-full lg:w-1/3 bg-gray-50 border-r border-gray-200 p-6 flex flex-col gap-8 overflow-y-auto">
-                {/* File Format */}
                 <div>
                   <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
                     1. Select Format
@@ -223,7 +214,6 @@ export default function MasterPayrollPage() {
                   </div>
                 </div>
 
-                {/* Data Filtering */}
                 <div>
                   <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                     <Filter className="w-3.5 h-3.5" /> 2. Select Coverage
@@ -271,7 +261,6 @@ export default function MasterPayrollPage() {
                   </div>
                 </div>
 
-                {/* PDF Specific Settings */}
                 {exportFormat === "pdf" && (
                   <div className="animate-in fade-in duration-300">
                     <h4 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
@@ -354,14 +343,12 @@ export default function MasterPayrollPage() {
               {/* Right Column: LIVE PREVIEW PANEL */}
               <div className="w-full lg:w-2/3 bg-gray-200/50 p-6 flex flex-col relative overflow-hidden">
                 <div className="bg-white w-full h-full rounded-xl shadow-inner border border-gray-300 flex flex-col overflow-hidden relative">
-                  {/* Status Banner */}
                   <div className="bg-gray-100 text-gray-500 text-xs font-bold uppercase tracking-widest p-2 text-center border-b border-gray-200 shrink-0">
                     {exportFormat === "pdf"
                       ? "Live Document Preview"
                       : "Data Export Summary"}
                   </div>
 
-                  {/* Preview Render Area */}
                   <div className="flex-1 w-full h-full relative">
                     {getFilteredPayrolls().length === 0 ? (
                       <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400 p-8 text-center">
@@ -451,8 +438,8 @@ export default function MasterPayrollPage() {
               <th className="px-4 py-3 font-bold text-right bg-red-50 text-[#990000]">
                 Earnings
               </th>
+              <th className="px-4 py-3 font-bold text-right">Days (ND)</th>
               <th className="px-4 py-3 font-bold text-right">Days</th>
-              <th className="px-4 py-3 font-bold text-right">+Days</th>
               <th className="px-4 py-3 font-bold text-right">+Pay</th>
               <th className="px-4 py-3 font-bold text-right bg-red-50 text-[#990000]">
                 Gross
@@ -489,90 +476,198 @@ export default function MasterPayrollPage() {
                 </td>
               </tr>
             ) : (
-              payrolls.map((p, i) => {
-                const emp = employees[p.employee_id];
-                const showWeekHeading = p.week_id !== lastWeekId;
-                if (showWeekHeading) lastWeekId = p.week_id;
+              // Grouped processing based on unique weeks
+              uniqueWeeks.map((weekId) => {
+                const weekPayrolls = payrolls.filter(
+                  (p) => p.week_id === weekId,
+                );
+
+                // Calculate week totals for the current group
+                const totals = weekPayrolls.reduce(
+                  (acc, curr) => {
+                    acc.basic += curr.basic_salary || 0;
+                    acc.allow += curr.allowance || 0;
+                    acc.nd += curr.nd_10pm_3am || 0;
+                    acc.earnings += curr.total_earnings || 0;
+                    acc.addPay += curr.additional_pay || 0;
+                    acc.gross += curr.weekly_gross || 0;
+                    acc.otPay += curr.ot_pay || 0;
+                    acc.deduct += curr.deduction || 0;
+                    acc.net += curr.net_pay || 0;
+                    return acc;
+                  },
+                  {
+                    basic: 0,
+                    allow: 0,
+                    nd: 0,
+                    earnings: 0,
+                    addPay: 0,
+                    gross: 0,
+                    otPay: 0,
+                    deduct: 0,
+                    net: 0,
+                  },
+                );
 
                 return (
-                  <Fragment key={p.id || i}>
-                    {showWeekHeading && (
-                      <tr className="bg-gray-100/80 border-y-2 border-gray-300">
-                        <td
-                          colSpan={20}
-                          className="px-4 py-2.5 text-xs font-black text-gray-700 tracking-wider text-left uppercase"
-                        >
-                          <span className="inline-flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-md border shadow-sm text-gray-900">
-                            <Calendar className="w-4 h-4 text-[#990000]" />
-                            PAY PERIOD: {p.week_id}{" "}
-                            <span className="text-gray-300 mx-2">|</span>{" "}
-                            COVERAGE: {getWeekDateRange(p.week_id)}
-                          </span>
-                        </td>
-                      </tr>
-                    )}
+                  <Fragment key={weekId}>
+                    {/* WEEK HEADER ROW */}
+                    <tr className="bg-gray-100/80 border-y-2 border-gray-300">
+                      <td
+                        colSpan={20}
+                        className="px-4 py-2.5 text-xs font-black text-gray-700 tracking-wider text-left uppercase"
+                      >
+                        <span className="inline-flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-md border shadow-sm text-gray-900">
+                          <Calendar className="w-4 h-4 text-[#990000]" />
+                          PAY PERIOD: {weekId}{" "}
+                          <span className="text-gray-300 mx-2">|</span>{" "}
+                          COVERAGE: {getWeekDateRange(weekId)}
+                        </span>
+                      </td>
+                    </tr>
 
-                    <tr className="hover:bg-red-50/30 transition-colors divide-x divide-gray-100 border-b border-gray-200">
-                      <td className="px-4 py-3 font-medium text-gray-500">
-                        <div>{p.week_id}</div>
+                    {/* EMPLOYEE ROWS */}
+                    {weekPayrolls.map((p, i) => {
+                      const emp = employees[p.employee_id];
+                      return (
+                        <tr
+                          key={p.id || i}
+                          className="hover:bg-red-50/30 transition-colors divide-x divide-gray-100 border-b border-gray-200"
+                        >
+                          <td className="px-4 py-3 font-medium text-gray-500">
+                            <div>{p.week_id}</div>
+                          </td>
+                          <td className="px-4 py-3 font-bold text-gray-900">
+                            {emp?.name || `Emp #${p.employee_id}`}
+                          </td>
+                          <td className="px-4 py-3 text-gray-500 text-xs">
+                            {emp?.experience}
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-500 font-mono">
+                            {p.rate_per_day.toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-400 font-mono">
+                            {p.rate_per_hour.toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-600 font-mono">
+                            {p.basic_salary.toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-600 font-mono">
+                            {p.allowance.toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-600 font-mono">
+                            {p.nd_10pm_3am.toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-400 font-mono">
+                            {p.nd_per_hour.toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3 text-right font-bold text-[#990000] bg-red-50/20 font-mono">
+                            ₱{p.total_earnings.toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-600">
+                            {p.no_of_working_days}
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-400">
+                            {p.addtl_working_days}
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-600 font-mono">
+                            {p.additional_pay.toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3 text-right font-bold text-[#990000] bg-red-50/20 font-mono">
+                            ₱{p.weekly_gross.toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-400">
+                            {p.total_ot_hours}
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-600 font-mono">
+                            {p.ot_pay.toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-400">
+                            {p.overtime_nd_hours}
+                          </td>
+                          <td className="px-4 py-3 text-right text-gray-600 font-mono">
+                            {p.addtl_working_hrs_nd.toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3 text-right text-red-600 font-mono font-medium">
+                            -{p.deduction.toFixed(2)}
+                          </td>
+                          <td className="px-4 py-3 text-right font-black bg-red-50/40 text-[#990000] text-[13px] font-mono">
+                            ₱
+                            {p.net_pay.toLocaleString("en-US", {
+                              minimumFractionDigits: 2,
+                            })}
+                          </td>
+                        </tr>
+                      );
+                    })}
+
+                    {/* NEW: WEEKLY TOTALS ROW */}
+                    <tr className="bg-gray-900 text-white divide-x divide-gray-700 border-b-[6px] border-gray-300 shadow-inner">
+                      <td
+                        colSpan={3}
+                        className="px-4 py-3 text-right text-xs font-bold uppercase tracking-widest text-gray-300"
+                      >
+                        Weekly Totals
                       </td>
-                      <td className="px-4 py-3 font-bold text-gray-900">
-                        {emp?.name || `Emp #${p.employee_id}`}
-                      </td>
-                      <td className="px-4 py-3 text-gray-500 text-xs">
-                        {emp?.experience}
-                      </td>
-                      <td className="px-4 py-3 text-right text-gray-500 font-mono">
-                        {p.rate_per_day.toFixed(2)}
-                      </td>
-                      <td className="px-4 py-3 text-right text-gray-400 font-mono">
-                        {p.rate_per_hour.toFixed(2)}
-                      </td>
-                      <td className="px-4 py-3 text-right text-gray-600 font-mono">
-                        {p.basic_salary.toFixed(2)}
-                      </td>
-                      <td className="px-4 py-3 text-right text-gray-600 font-mono">
-                        {p.allowance.toFixed(2)}
-                      </td>
-                      <td className="px-4 py-3 text-right text-gray-600 font-mono">
-                        {p.nd_10pm_3am.toFixed(2)}
-                      </td>
-                      <td className="px-4 py-3 text-right text-gray-400 font-mono">
-                        {p.nd_per_hour.toFixed(2)}
-                      </td>
-                      <td className="px-4 py-3 text-right font-bold text-[#990000] bg-red-50/20 font-mono">
-                        ₱{p.total_earnings.toFixed(2)}
-                      </td>
-                      <td className="px-4 py-3 text-right text-gray-600">
-                        {p.no_of_working_days}
-                      </td>
-                      <td className="px-4 py-3 text-right text-gray-400">
-                        {p.addtl_working_days}
-                      </td>
-                      <td className="px-4 py-3 text-right text-gray-600 font-mono">
-                        {p.additional_pay.toFixed(2)}
-                      </td>
-                      <td className="px-4 py-3 text-right font-bold text-[#990000] bg-red-50/20 font-mono">
-                        ₱{p.weekly_gross.toFixed(2)}
-                      </td>
-                      <td className="px-4 py-3 text-right text-gray-400">
-                        {p.total_ot_hours}
-                      </td>
-                      <td className="px-4 py-3 text-right text-gray-600 font-mono">
-                        {p.ot_pay.toFixed(2)}
-                      </td>
-                      <td className="px-4 py-3 text-right text-gray-400">
-                        {p.overtime_nd_hours}
-                      </td>
-                      <td className="px-4 py-3 text-right text-gray-600 font-mono">
-                        {p.addtl_working_hrs_nd.toFixed(2)}
-                      </td>
-                      <td className="px-4 py-3 text-right text-red-600 font-mono font-medium">
-                        -{p.deduction.toFixed(2)}
-                      </td>
-                      <td className="px-4 py-3 text-right font-black bg-red-50/40 text-[#990000] text-[13px] font-mono">
+                      <td className="px-4 py-3 text-center text-gray-600">-</td>
+                      <td className="px-4 py-3 text-center text-gray-600">-</td>
+                      <td className="px-4 py-3 text-right font-bold font-mono">
                         ₱
-                        {p.net_pay.toLocaleString("en-US", {
+                        {totals.basic.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                        })}
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold font-mono">
+                        ₱
+                        {totals.allow.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                        })}
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold font-mono">
+                        ₱
+                        {totals.nd.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                        })}
+                      </td>
+                      <td className="px-4 py-3 text-center text-gray-600">-</td>
+                      <td className="px-4 py-3 text-right font-bold text-red-300 font-mono bg-red-900/20">
+                        ₱
+                        {totals.earnings.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                        })}
+                      </td>
+                      <td className="px-4 py-3 text-center text-gray-600">-</td>
+                      <td className="px-4 py-3 text-center text-gray-600">-</td>
+                      <td className="px-4 py-3 text-right font-bold font-mono">
+                        ₱
+                        {totals.addPay.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                        })}
+                      </td>
+                      <td className="px-4 py-3 text-right font-bold text-red-300 font-mono bg-red-900/20">
+                        ₱
+                        {totals.gross.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                        })}
+                      </td>
+                      <td className="px-4 py-3 text-center text-gray-600">-</td>
+                      <td className="px-4 py-3 text-right font-bold font-mono">
+                        ₱
+                        {totals.otPay.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                        })}
+                      </td>
+                      <td className="px-4 py-3 text-center text-gray-600">-</td>
+                      <td className="px-4 py-3 text-center text-gray-600">-</td>
+                      <td className="px-4 py-3 text-right font-bold text-red-400 font-mono">
+                        -₱
+                        {totals.deduct.toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                        })}
+                      </td>
+                      <td className="px-4 py-3 text-right font-black text-[#ffcccc] text-[13px] font-mono bg-red-900/40">
+                        ₱
+                        {totals.net.toLocaleString("en-US", {
                           minimumFractionDigits: 2,
                         })}
                       </td>

@@ -139,8 +139,8 @@ export async function exportPayrollToExcel(data: any[], reportPeriod: string) {
         result: row["Total Earnings"],
       },
 
-      row["No. of Working Days"], // K (Input)
-      row["Addt'l Working Days"], // L (Input)
+      row["No. of Working Days (w/ ND)"], // K (Input)
+      row["No. of Working Days (w/o ND)"], // L (Input)
       row["Additional Pay"], // M (Input)
 
       // N: Weekly Gross = Total Earnings + OT Pay + Addt'l Working Hrs ND

@@ -387,7 +387,7 @@ export default function PayrollPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5 text-blue-600">
-                  No. of Working Days
+                  No. of Working Days (w/ND)
                 </label>
                 <input
                   type="number"
@@ -402,7 +402,7 @@ export default function PayrollPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Addt&apos;l Working Days
+                  No. of Working Days (w/o ND)
                 </label>
                 <input
                   type="number"
