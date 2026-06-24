@@ -101,43 +101,49 @@ export async function exportPayrollToExcel(data: any[], reportPeriod: string) {
     { width: 18 },
   ];
 
+  // Sort by Week descending, Role ascending
+  const sortedData = [...data].sort((a, b) => {
+    const weekCmp = b["Week (Date)"].localeCompare(a["Week (Date)"]);
+    if (weekCmp !== 0) return weekCmp;
+    const roleA = a["Personal Experience"] || "";
+    const roleB = b["Personal Experience"] || "";
+    return roleA.localeCompare(roleB);
+  });
+
   let currentRow = 4;
+  let currentRole = "";
 
-  data.forEach((row) => {
-    // FIXED: Adjusted formulas so math accurately mirrors the column layout left-to-right
+  sortedData.forEach((row) => {
+    // Role sorting flag for styling
+    let isNewRole = false;
+    if (currentRole !== "" && currentRole !== row["Personal Experience"]) {
+      isNewRole = true;
+    }
+    currentRole = row["Personal Experience"];
+
     const rowData = [
-      row["Week (Date)"], // A (1)
-      row["Employee"], // B (2)
-      row["Personal Experience"], // C (3)
-      row["Rate Per Day"], // D (4)
-
-      { formula: `D${currentRow}/8`, result: row["Rate Per Hour"] }, // E (5)
-      { formula: `D${currentRow}*K${currentRow}`, result: row["Basic Salary"] }, // F (6)
-
-      row["Allowance"], // G (7)
-      row["ND (10PM-3AM)"], // H (8)
-      row["ND (Per Hour)"], // I (9)
-
-      // J (10) Earnings = Basic + Allow + ND
+      row["Week (Date)"],
+      row["Employee"],
+      row["Personal Experience"],
+      row["Rate Per Day"],
+      { formula: `D${currentRow}/8`, result: row["Rate Per Hour"] },
+      { formula: `D${currentRow}*K${currentRow}`, result: row["Basic Salary"] },
+      row["Allowance"],
+      row["ND (10PM-3AM)"],
+      row["ND (Per Hour)"],
       {
         formula: `F${currentRow}+G${currentRow}+H${currentRow}`,
         result: row["Total Earnings"],
       },
-
-      row["No. of Working Days (w/ ND)"], // K (11)
-      row["No. of Working Days (w/o ND)"], // L (12)
-      row["Additional Pay"], // M (13)
-
-      // N (14) Gross = Earnings + Additional Pay
+      row["No. of Working Days (w/ ND)"],
+      row["No. of Working Days (w/o ND)"],
+      row["Additional Pay"],
       { formula: `J${currentRow}+M${currentRow}`, result: row["Weekly Gross"] },
-
-      row["Total OT Hrs"], // O (15)
-      row["OT Pay"], // P (16)
-      row["Overtime"], // Q (17)
-      row["Addit'l Working Hrs"], // R (18)
-      row["Deduction"], // S (19)
-
-      // T (20) Net Pay = Gross + OT + OT(ND) - Deduct
+      row["Total OT Hrs"],
+      row["OT Pay"],
+      row["Overtime"],
+      row["Addit'l Working Hrs"],
+      row["Deduction"],
       {
         formula: `N${currentRow}+P${currentRow}+R${currentRow}-S${currentRow}`,
         result: row["Net Pay"],
@@ -173,14 +179,21 @@ export async function exportPayrollToExcel(data: any[], reportPeriod: string) {
       if (colNumber > 3)
         cell.alignment = { horizontal: "right", vertical: "middle" };
       else cell.alignment = { horizontal: "left", vertical: "middle" };
+
+      // Inject thick top border for visual separation of roles
+      if (isNewRole) {
+        cell.border = {
+          top: { style: "medium", color: { argb: "FFAAAAAA" } },
+          bottom: { style: "thin", color: { argb: "FFDDDDDD" } },
+          left: { style: "thin", color: { argb: "FFDDDDDD" } },
+          right: { style: "thin", color: { argb: "FFDDDDDD" } },
+        };
+      }
     });
 
     currentRow++;
   });
 
-  // ==========================================
-  // GRAND TOTALS ROW (Black with White Text)
-  // ==========================================
   const totalRow = sheet.addRow([]);
   totalRow.height = 25;
 
@@ -188,7 +201,6 @@ export async function exportPayrollToExcel(data: any[], reportPeriod: string) {
   const gtCell = totalRow.getCell(1);
   gtCell.value = "GRAND TOTALS";
 
-  // Inject SUM formulas across all financial columns
   const totalColumns = [
     { col: 6, letter: "F" },
     { col: 7, letter: "G" },
@@ -210,7 +222,6 @@ export async function exportPayrollToExcel(data: any[], reportPeriod: string) {
     totalRow.getCell(col).numFmt = "₱#,##0.00";
   });
 
-  // Style the entire row Black
   totalRow.eachCell((cell, colNumber) => {
     cell.fill = {
       type: "pattern",
@@ -218,13 +229,7 @@ export async function exportPayrollToExcel(data: any[], reportPeriod: string) {
       fgColor: { argb: "FF000000" },
     };
     cell.font = { bold: true, color: { argb: "FFFFFFFF" }, size: 11 };
-
-    // Set text alignment
-    if (colNumber <= 3) {
-      cell.alignment = { horizontal: "right", vertical: "middle" };
-    } else {
-      cell.alignment = { horizontal: "right", vertical: "middle" };
-    }
+    cell.alignment = { horizontal: "right", vertical: "middle" };
   });
 
   const buffer = await workbook.xlsx.writeBuffer();

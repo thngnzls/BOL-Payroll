@@ -19,7 +19,6 @@ import {
   PdfOptions,
 } from "../../lib/pdf-export";
 
-// Helper to extract a YYYY-MM string from a YYYY-WXX string for monthly filtering
 const getMonthFromWeek = (weekStr: string) => {
   if (!weekStr) return "";
   const [year, week] = weekStr.split("-W").map(Number);
@@ -32,18 +31,15 @@ export default function MasterPayrollPage() {
   const [employees, setEmployees] = useState<Record<number, Employee>>({});
   const [loading, setLoading] = useState(true);
 
-  // --- Export Hub State ---
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [exportFormat, setExportFormat] = useState<"pdf" | "excel">("pdf");
 
-  // Filtering Options
   const [filterMode, setFilterMode] = useState<"all" | "month" | "week">("all");
   const [filterMonth, setFilterMonth] = useState(
     new Date().toISOString().slice(0, 7),
-  ); // YYYY-MM
+  );
   const [filterWeek, setFilterWeek] = useState("");
 
-  // PDF Specific Options
   const [pdfConfig, setPdfConfig] = useState<PdfOptions>({
     paperSize: "legal",
     marginMode: "normal",
@@ -59,7 +55,7 @@ export default function MasterPayrollPage() {
           b.week_id.localeCompare(a.week_id),
         );
         setPayrolls(sorted);
-        if (sorted.length > 0) setFilterWeek(sorted[0].week_id); // Default week filter
+        if (sorted.length > 0) setFilterWeek(sorted[0].week_id);
 
         const empMap: Record<number, Employee> = {};
         empData.forEach((e) => (empMap[e.id] = e));
@@ -78,7 +74,7 @@ export default function MasterPayrollPage() {
     if (filterMode === "week") {
       return payrolls.filter((p) => p.week_id === filterWeek);
     }
-    return payrolls; // 'all'
+    return payrolls;
   };
 
   const getMappedData = (dataToMap: PayrollResponse[]) => {
@@ -169,14 +165,10 @@ export default function MasterPayrollPage() {
     setIsExportModalOpen(false);
   };
 
-  // Group unique weeks so we can easily append a totals row for each
   const uniqueWeeks = Array.from(new Set(payrolls.map((p) => p.week_id)));
 
   return (
     <div className="max-w-[1400px] mx-auto space-y-6 p-6 relative">
-      {/* ========================================================
-          THE EXPORT HUB MODAL
-          ======================================================== */}
       {isExportModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl border border-gray-200 w-full max-w-6xl h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -340,7 +332,6 @@ export default function MasterPayrollPage() {
                 </div>
               </div>
 
-              {/* Right Column: LIVE PREVIEW PANEL */}
               <div className="w-full lg:w-2/3 bg-gray-200/50 p-6 flex flex-col relative overflow-hidden">
                 <div className="bg-white w-full h-full rounded-xl shadow-inner border border-gray-300 flex flex-col overflow-hidden relative">
                   <div className="bg-gray-100 text-gray-500 text-xs font-bold uppercase tracking-widest p-2 text-center border-b border-gray-200 shrink-0">
@@ -392,9 +383,7 @@ export default function MasterPayrollPage() {
           </div>
         </div>
       )}
-      {/* ======================================================== */}
 
-      {/* --- STANDARD MASTER PAGE BEHIND THE MODAL --- */}
       <div className="flex flex-col sm:flex-row justify-between items-center border-b border-gray-200 pb-4 gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 tracking-tight">
@@ -413,7 +402,6 @@ export default function MasterPayrollPage() {
         </button>
       </div>
 
-      {/* Main Data Table */}
       <div className="bg-white rounded-lg shadow-md border border-gray-200 overflow-x-auto">
         <table className="w-full whitespace-nowrap text-sm">
           <thead>
@@ -476,13 +464,17 @@ export default function MasterPayrollPage() {
                 </td>
               </tr>
             ) : (
-              // Grouped processing based on unique weeks
               uniqueWeeks.map((weekId) => {
                 const weekPayrolls = payrolls.filter(
                   (p) => p.week_id === weekId,
                 );
 
-                // Calculate week totals for the current group
+                weekPayrolls.sort((a, b) => {
+                  const roleA = employees[a.employee_id]?.experience || "";
+                  const roleB = employees[b.employee_id]?.experience || "";
+                  return roleA.localeCompare(roleB);
+                });
+
                 const totals = weekPayrolls.reduce(
                   (acc, curr) => {
                     acc.basic += curr.basic_salary || 0;
@@ -511,7 +503,6 @@ export default function MasterPayrollPage() {
 
                 return (
                   <Fragment key={weekId}>
-                    {/* WEEK HEADER ROW */}
                     <tr className="bg-gray-100/80 border-y-2 border-gray-300">
                       <td
                         colSpan={20}
@@ -526,9 +517,10 @@ export default function MasterPayrollPage() {
                       </td>
                     </tr>
 
-                    {/* EMPLOYEE ROWS */}
                     {weekPayrolls.map((p, i) => {
                       const emp = employees[p.employee_id];
+                      const role = emp?.experience || "Unknown";
+
                       return (
                         <tr
                           key={p.id || i}
@@ -541,7 +533,7 @@ export default function MasterPayrollPage() {
                             {emp?.name || `Emp #${p.employee_id}`}
                           </td>
                           <td className="px-4 py-3 text-gray-500 text-xs">
-                            {emp?.experience}
+                            {role}
                           </td>
                           <td className="px-4 py-3 text-right text-gray-500 font-mono">
                             {p.rate_per_day.toFixed(2)}
@@ -601,7 +593,6 @@ export default function MasterPayrollPage() {
                       );
                     })}
 
-                    {/* REDESIGNED: WEEKLY TOTALS ROW */}
                     <tr className="bg-black text-white divide-x divide-gray-800 border-b-[6px] border-gray-300 shadow-inner">
                       <td
                         colSpan={3}

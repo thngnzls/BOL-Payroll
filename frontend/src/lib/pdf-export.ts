@@ -89,13 +89,19 @@ function buildPayrollPdf(data: any[], options: PdfOptions): jsPDF {
     { header: "NET PAY", dataKey: "Net Pay" },
   ];
 
-  const sortedData = [...data].sort((a, b) =>
-    b["Week (Date)"].localeCompare(a["Week (Date)"]),
-  );
+  // FIXED: Double sorting. Sorts Week descending, then by Role ascending
+  const sortedData = [...data].sort((a, b) => {
+    const weekCmp = b["Week (Date)"].localeCompare(a["Week (Date)"]);
+    if (weekCmp !== 0) return weekCmp;
+    const roleA = a["Personal Experience"] || "";
+    const roleB = b["Personal Experience"] || "";
+    return roleA.localeCompare(roleB);
+  });
+
   const tableData: any[] = [];
   let currentWeek = "";
+  let currentRole = "";
 
-  // 1. Calculate Grand Totals across all numeric columns
   const totals = sortedData.reduce(
     (acc, curr) => {
       acc.basic += curr["Basic Salary"] || 0;
@@ -127,6 +133,7 @@ function buildPayrollPdf(data: any[], options: PdfOptions): jsPDF {
   sortedData.forEach((row) => {
     if (row["Week (Date)"] !== currentWeek) {
       currentWeek = row["Week (Date)"];
+      currentRole = ""; // Reset role tracker for a new week block
       tableData.push({
         isWeekHeader: true,
         "Week (Date)": ` PAY PERIOD: ${currentWeek}   |   COVERAGE: ${getWeekDateRange(currentWeek)}`,
@@ -134,6 +141,13 @@ function buildPayrollPdf(data: any[], options: PdfOptions): jsPDF {
     }
 
     const formattedRow: any = { ...row };
+
+    // Tag row if the role changes for styling
+    if (currentRole !== "" && currentRole !== row["Personal Experience"]) {
+      formattedRow.isNewRole = true;
+    }
+    currentRole = row["Personal Experience"];
+
     const currencyFields = [
       "Rate Per Day",
       "Rate Per Hour",
@@ -158,7 +172,6 @@ function buildPayrollPdf(data: any[], options: PdfOptions): jsPDF {
     tableData.push(formattedRow);
   });
 
-  // 2. Append the Grand Totals Row to the end of the PDF Data Array
   tableData.push({
     isGrandTotal: true,
     "Week (Date)": "GRAND TOTALS",
@@ -205,7 +218,6 @@ function buildPayrollPdf(data: any[], options: PdfOptions): jsPDF {
     didParseCell: function (data) {
       const rawData = data.row.raw as any;
 
-      // Gray Separator Rows
       if (rawData.isWeekHeader) {
         data.cell.styles.fillColor = [230, 230, 230];
         data.cell.styles.textColor = [0, 0, 0];
@@ -216,13 +228,18 @@ function buildPayrollPdf(data: any[], options: PdfOptions): jsPDF {
         }
       }
 
-      // Black Grand Total Row
+      // Add thin line above row if it belongs to a new Role group
+      if (rawData.isNewRole) {
+        data.cell.styles.lineWidth = { top: 1 };
+        data.cell.styles.lineColor = [180, 180, 180];
+      }
+
       if (rawData.isGrandTotal) {
         data.cell.styles.fillColor = [0, 0, 0];
         data.cell.styles.textColor = [255, 255, 255];
         data.cell.styles.fontStyle = "bold";
         if (data.column.index === 0) {
-          data.cell.colSpan = 3; // Merges Week, Employee, and Role
+          data.cell.colSpan = 3;
           data.cell.styles.halign = "right";
         }
       }

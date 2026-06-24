@@ -22,31 +22,50 @@ import {
   Trash2,
 } from "lucide-react";
 
-const getCurrentISOWeek = () => {
-  const date = new Date();
-  date.setHours(0, 0, 0, 0);
-  date.setDate(date.getDate() + 3 - ((date.getDay() + 6) % 7));
-  const week1 = new Date(date.getFullYear(), 0, 4);
+// --- Custom US Week Helpers (Sunday - Saturday) ---
+const getUSWeekId = (dateStr?: string) => {
+  const targetDate = dateStr ? new Date(dateStr + "T00:00:00") : new Date();
+  targetDate.setHours(0, 0, 0, 0);
+
+  targetDate.setDate(targetDate.getDate() - targetDate.getDay()); // Snap to Sunday
+
+  const startOfYear = new Date(targetDate.getFullYear(), 0, 1);
+  startOfYear.setDate(startOfYear.getDate() - startOfYear.getDay());
+
   const weekNum =
-    1 +
-    Math.round(
-      ((date.getTime() - week1.getTime()) / 86400000 -
-        3 +
-        ((week1.getDay() + 6) % 7)) /
-        7,
-    );
-  return `${date.getFullYear()}-W${String(weekNum).padStart(2, "0")}`;
+    Math.floor((targetDate.getTime() - startOfYear.getTime()) / 86400000 / 7) +
+    1;
+  return `${targetDate.getFullYear()}-W${String(weekNum).padStart(2, "0")}`;
 };
 
-// NEW: Helper to convert Week ID to readable dates
+const getPickerDateFromUSWeek = (weekStr: string) => {
+  if (!weekStr) return "";
+  try {
+    const [year, week] = weekStr.split("-W").map(Number);
+    const startOfYear = new Date(year, 0, 1);
+    const firstSunday = new Date(startOfYear);
+    firstSunday.setDate(firstSunday.getDate() - firstSunday.getDay());
+
+    const targetSunday = new Date(firstSunday);
+    targetSunday.setDate(firstSunday.getDate() + (week - 1) * 7);
+
+    return `${targetSunday.getFullYear()}-${String(targetSunday.getMonth() + 1).padStart(2, "0")}-${String(targetSunday.getDate()).padStart(2, "0")}`;
+  } catch (e) {
+    return "";
+  }
+};
+
 const getWeekDateRange = (weekStr: string) => {
   if (!weekStr) return "";
   try {
     const [year, week] = weekStr.split("-W").map(Number);
-    const date = new Date(year, 0, 1 + (week - 1) * 7);
-    const day = date.getDay();
-    const diff = date.getDate() - day + (day === 0 ? -6 : 1);
-    const start = new Date(date.setDate(diff));
+    const startOfYear = new Date(year, 0, 1);
+    const firstSunday = new Date(startOfYear);
+    firstSunday.setDate(firstSunday.getDate() - firstSunday.getDay());
+
+    const start = new Date(firstSunday);
+    start.setDate(firstSunday.getDate() + (week - 1) * 7);
+
     const end = new Date(start);
     end.setDate(end.getDate() + 6);
 
@@ -64,7 +83,7 @@ const getWeekDateRange = (weekStr: string) => {
 export default function PayrollPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selectedEmpId, setSelectedEmpId] = useState<number | "">("");
-  const [weekId, setWeekId] = useState(getCurrentISOWeek());
+  const [weekId, setWeekId] = useState(getUSWeekId());
 
   const [existingPayrollId, setExistingPayrollId] = useState<number | null>(
     null,
@@ -177,25 +196,19 @@ export default function PayrollPage() {
     }
   }, [selectedEmpId, weekId, formData]);
 
-  // FIX: Bulletproof Save Function (Guarantees NO Duplicates)
   const handleSave = async () => {
     if (!selectedEmpId || !weekId || isSaving) return;
     setIsSaving(true);
     try {
-      // Step 1: Fetch the absolute latest records straight from the database
       const latestPayrolls = await endpoints.getPayrolls(weekId);
-
-      // Step 2: Find EVERY record that belongs to this employee for this week
       const duplicates = latestPayrolls.filter(
         (p) => p.employee_id === Number(selectedEmpId),
       );
 
-      // Step 3: Delete them all to ensure a perfectly clean slate
       await Promise.all(
         duplicates.map((dup) => endpoints.deletePayroll(dup.id as number)),
       );
 
-      // Step 4: Save the single, fresh, updated record
       const payload: PayrollCalculateRequest = {
         employee_id: Number(selectedEmpId),
         week_id: weekId,
@@ -310,24 +323,27 @@ export default function PayrollPage() {
               )}
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* SMART DATE PICKER IMPLEMENTATION */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center gap-1.5">
-                  <CalendarDays className="w-4 h-4" /> Pay Period (Week)
+                <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
+                  <CalendarDays className="w-4 h-4" /> Pay Period (Select any
+                  day)
                 </label>
                 <input
-                  type="week"
-                  value={weekId}
-                  onChange={(e) => setWeekId(e.target.value)}
+                  type="date"
+                  value={getPickerDateFromUSWeek(weekId)}
+                  onChange={(e) => {
+                    if (e.target.value) setWeekId(getUSWeekId(e.target.value));
+                  }}
                   className="w-full rounded-lg border border-gray-300 p-2.5 outline-none focus:ring-2 focus:ring-[#990000]/20 focus:border-[#990000] shadow-sm transition-all cursor-pointer"
                 />
-                {/* NEW: Explicit Date Range Display */}
                 <div className="mt-1.5 text-xs font-semibold text-[#990000] bg-red-50 p-1.5 rounded text-center border border-red-100">
                   {getWeekDateRange(weekId)}
                 </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5 flex items-center gap-1.5">
+                <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wide mb-1.5 flex items-center gap-1.5">
                   <User className="w-4 h-4" /> Select Employee
                 </label>
                 <select

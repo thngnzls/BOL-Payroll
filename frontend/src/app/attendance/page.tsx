@@ -11,21 +11,37 @@ import {
   LayoutList,
 } from "lucide-react";
 
-// --- Date Helpers ---
-const getCurrentISOWeek = () => {
-  const date = new Date();
-  date.setHours(0, 0, 0, 0);
-  date.setDate(date.getDate() + 3 - ((date.getDay() + 6) % 7));
-  const week1 = new Date(date.getFullYear(), 0, 4);
+// --- Custom US Week Helpers (Sunday - Saturday) ---
+const getUSWeekId = (dateStr?: string) => {
+  const targetDate = dateStr ? new Date(dateStr + "T00:00:00") : new Date();
+  targetDate.setHours(0, 0, 0, 0);
+
+  targetDate.setDate(targetDate.getDate() - targetDate.getDay()); // Snap to Sunday
+
+  const startOfYear = new Date(targetDate.getFullYear(), 0, 1);
+  startOfYear.setDate(startOfYear.getDate() - startOfYear.getDay());
+
   const weekNum =
-    1 +
-    Math.round(
-      ((date.getTime() - week1.getTime()) / 86400000 -
-        3 +
-        ((week1.getDay() + 6) % 7)) /
-        7,
-    );
-  return `${date.getFullYear()}-W${String(weekNum).padStart(2, "0")}`;
+    Math.floor((targetDate.getTime() - startOfYear.getTime()) / 86400000 / 7) +
+    1;
+  return `${targetDate.getFullYear()}-W${String(weekNum).padStart(2, "0")}`;
+};
+
+const getPickerDateFromUSWeek = (weekStr: string) => {
+  if (!weekStr) return "";
+  try {
+    const [year, week] = weekStr.split("-W").map(Number);
+    const startOfYear = new Date(year, 0, 1);
+    const firstSunday = new Date(startOfYear);
+    firstSunday.setDate(firstSunday.getDate() - firstSunday.getDay());
+
+    const targetSunday = new Date(firstSunday);
+    targetSunday.setDate(firstSunday.getDate() + (week - 1) * 7);
+
+    return `${targetSunday.getFullYear()}-${String(targetSunday.getMonth() + 1).padStart(2, "0")}-${String(targetSunday.getDate()).padStart(2, "0")}`;
+  } catch (e) {
+    return "";
+  }
 };
 
 const getCurrentMonthStr = () => {
@@ -33,27 +49,24 @@ const getCurrentMonthStr = () => {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 };
 
-const getDatesFromISOWeek = (weekStr: string) => {
+const getDatesFromUSWeek = (weekStr: string) => {
   if (!weekStr) return [];
   try {
     const [yearStr, weekStrNum] = weekStr.split("-W");
     const year = parseInt(yearStr, 10);
     const week = parseInt(weekStrNum, 10);
-    const simple = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7));
-    const dow = simple.getUTCDay();
-    const ISOweekStart = new Date(simple);
-    if (dow <= 4)
-      ISOweekStart.setUTCDate(simple.getUTCDate() - simple.getUTCDay() + 1);
-    else ISOweekStart.setUTCDate(simple.getUTCDate() + 8 - simple.getUTCDay());
-    const startLocal = new Date(
-      ISOweekStart.getUTCFullYear(),
-      ISOweekStart.getUTCMonth(),
-      ISOweekStart.getUTCDate(),
-    );
+
+    const startOfYear = new Date(year, 0, 1);
+    const firstSunday = new Date(startOfYear);
+    firstSunday.setDate(firstSunday.getDate() - firstSunday.getDay());
+
+    const targetSunday = new Date(firstSunday);
+    targetSunday.setDate(firstSunday.getDate() + (week - 1) * 7);
+
     const dates = [];
     for (let i = 0; i < 7; i++) {
-      const d = new Date(startLocal);
-      d.setDate(startLocal.getDate() + i);
+      const d = new Date(targetSunday);
+      d.setDate(targetSunday.getDate() + i);
       const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
       dates.push({
         dateStr,
@@ -73,18 +86,15 @@ export default function AttendancePage() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
 
-  // Weekly Tab State
   const [weekId, setWeekId] = useState(() => {
     if (typeof window !== "undefined")
-      return (
-        localStorage.getItem("payroll_attendance_week") || getCurrentISOWeek()
-      );
-    return getCurrentISOWeek();
+      return localStorage.getItem("payroll_attendance_week") || getUSWeekId();
+    return getUSWeekId();
   });
-  const [weeklyAttendances, setWeeklyAttendances] = useState<Attendance[]>([]);
-  const weekDates = getDatesFromISOWeek(weekId);
 
-  // Monthly Tab State
+  const [weeklyAttendances, setWeeklyAttendances] = useState<Attendance[]>([]);
+  const weekDates = getDatesFromUSWeek(weekId);
+
   const [monthStr, setMonthStr] = useState(getCurrentMonthStr());
   const [allAttendances, setAllAttendances] = useState<Attendance[]>([]);
 
@@ -92,7 +102,6 @@ export default function AttendancePage() {
     localStorage.setItem("payroll_attendance_week", weekId);
   }, [weekId]);
 
-  // Initial Load
   useEffect(() => {
     endpoints
       .getEmployees()
@@ -101,7 +110,6 @@ export default function AttendancePage() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Fetch Data based on active tab
   useEffect(() => {
     if (activeTab === "weekly" && weekId) {
       endpoints
@@ -109,12 +117,10 @@ export default function AttendancePage() {
         .then(setWeeklyAttendances)
         .catch(console.error);
     } else if (activeTab === "monthly" && monthStr) {
-      // Fetching all attendances (without passing week_id) to filter locally by month
       endpoints.getAttendances().then(setAllAttendances).catch(console.error);
     }
   }, [activeTab, weekId, monthStr]);
 
-  // --- WEEKLY LOGIC ---
   const toggleAttendance = async (
     empId: number,
     dateStr: string,
@@ -122,7 +128,6 @@ export default function AttendancePage() {
   ) => {
     const newStatus = currentStatus === "Present" ? "Absent" : "Present";
     setWeeklyAttendances((prev) => {
-      // FIX: Ensure we strip timezone off existing dates when comparing
       const filtered = prev.filter(
         (a) => !(a.employee_id === empId && a.date.split("T")[0] === dateStr),
       );
@@ -151,7 +156,6 @@ export default function AttendancePage() {
   };
 
   const getStatus = (employeeId: number, dateStr: string) => {
-    // FIX: Split 'T' handles PostgreSQL timezone strings accurately
     const record = weeklyAttendances.find(
       (a) => a.employee_id === employeeId && a.date.split("T")[0] === dateStr,
     );
@@ -169,7 +173,6 @@ export default function AttendancePage() {
 
   return (
     <div className="max-w-[1400px] mx-auto p-6 space-y-6">
-      {/* Header & Tabs */}
       <div className="border-b border-gray-200 pb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="bg-[#990000] p-2.5 rounded-xl shadow-sm">
@@ -202,7 +205,6 @@ export default function AttendancePage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* LEFT PANE: Filter Controls */}
         <div className="lg:col-span-3 space-y-5 bg-white p-5 rounded-2xl shadow-sm border border-gray-200 h-fit">
           <h2 className="text-sm font-bold text-gray-400 uppercase tracking-wider border-b pb-2">
             Control Station
@@ -211,14 +213,16 @@ export default function AttendancePage() {
           {activeTab === "weekly" ? (
             <>
               <div>
-                <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5 flex items-center gap-1">
+                <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wide mb-1.5 flex items-center gap-1">
                   <CalendarIcon className="w-3.5 h-3.5 text-gray-400" /> Target
-                  Pay Week
+                  Pay Week (Select any day)
                 </label>
                 <input
-                  type="week"
-                  value={weekId}
-                  onChange={(e) => setWeekId(e.target.value)}
+                  type="date"
+                  value={getPickerDateFromUSWeek(weekId)}
+                  onChange={(e) => {
+                    if (e.target.value) setWeekId(getUSWeekId(e.target.value));
+                  }}
                   className="w-full rounded-lg border border-gray-300 p-2.5 text-sm outline-none focus:ring-2 focus:ring-[#990000]/20 font-medium cursor-pointer bg-gray-50"
                 />
               </div>
@@ -233,7 +237,7 @@ export default function AttendancePage() {
             </>
           ) : (
             <div>
-              <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5 flex items-center gap-1">
+              <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wide mb-1.5 flex items-center gap-1">
                 <CalendarIcon className="w-3.5 h-3.5 text-gray-400" /> Target
                 Month
               </label>
@@ -243,15 +247,11 @@ export default function AttendancePage() {
                 onChange={(e) => setMonthStr(e.target.value)}
                 className="w-full rounded-lg border border-gray-300 p-2.5 text-sm outline-none focus:ring-2 focus:ring-[#990000]/20 font-medium cursor-pointer bg-gray-50"
               />
-              <p className="text-xs text-gray-500 mt-2 leading-relaxed">
-                Select a month to generate a read-only audit report of all
-                logged days.
-              </p>
             </div>
           )}
 
           <div>
-            <label className="block text-xs font-bold text-gray-700 uppercase tracking-wide mb-1.5 flex items-center gap-1">
+            <label className="block text-[11px] font-bold text-gray-700 uppercase tracking-wide mb-1.5 flex items-center gap-1">
               <Search className="w-3.5 h-3.5 text-gray-400" /> Filter Directory
             </label>
             <input
@@ -264,9 +264,7 @@ export default function AttendancePage() {
           </div>
         </div>
 
-        {/* RIGHT PANE: Main Content Window */}
         <div className="lg:col-span-9 bg-white rounded-2xl shadow-md border border-gray-200 overflow-hidden flex flex-col">
-          {/* TAB 1: WEEKLY GRID */}
           {activeTab === "weekly" && (
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
@@ -365,7 +363,6 @@ export default function AttendancePage() {
             </div>
           )}
 
-          {/* TAB 2: MONTHLY REPORT */}
           {activeTab === "monthly" && (
             <div className="overflow-x-auto">
               <table className="w-full text-left">
@@ -394,7 +391,6 @@ export default function AttendancePage() {
                     </tr>
                   ) : (
                     filteredEmployees.map((emp) => {
-                      // Filter down to records for THIS employee, in THIS month, where status is "Present"
                       const employeeMonthlyRecords = allAttendances.filter(
                         (a) =>
                           a.employee_id === emp.id &&
@@ -402,7 +398,6 @@ export default function AttendancePage() {
                           a.status === "Present",
                       );
 
-                      // Sort dates chronologically for readability
                       employeeMonthlyRecords.sort((a, b) =>
                         a.date.localeCompare(b.date),
                       );
